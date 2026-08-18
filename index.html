@@ -786,7 +786,120 @@ TIME_SERVICE.startBackgroundSync();
 TIME_SERVICE.addListener(function(ts) {
     ts.updateUI();
 });
+// ============================================================
+// اتصال به Supabase - اضافه شده در خط ۷۹۳
+// ============================================================
 
+// 🔑 تنظیمات Supabase
+const SUPABASE_URL = 'https://jblrvhbiqtjoczhzese.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Ajo8-rxlNak8ZoDhjb0E_w_VDX4w-QW';
+
+console.log('✅ Supabase تنظیمات:', SUPABASE_URL);
+
+// تابع دریافت زمان از Supabase
+async function syncTimeWithSupabase() {
+    try {
+        console.log('🔄 در حال دریافت زمان از Supabase...');
+        
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/time?select=server_time&order=id.desc&limit=1`, {
+            headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('HTTP Error: ' + response.status);
+        }
+        
+        const data = await response.json();
+        console.log('✅ زمان از Supabase دریافت شد:', data);
+        
+        if (data && data.length > 0 && data[0].server_time) {
+            const serverTime = new Date(data[0].server_time).getTime();
+            const localTime = Date.now();
+            const offset = serverTime - localTime;
+            
+            // ذخیره در Time Service
+            if (typeof TIME_SERVICE !== 'undefined') {
+                TIME_SERVICE.saveOffset(offset);
+                TIME_SERVICE._status = 'online';
+                TIME_SERVICE._synced = true;
+                if (TIME_SERVICE.notifyListeners) {
+                    TIME_SERVICE.notifyListeners();
+                }
+                console.log('✅ زمان Supabase همگام‌سازی شد (offset: ' + offset + 'ms)');
+            }
+            return true;
+        }
+        return false;
+    } catch(e) {
+        console.warn('❌ خطا در دریافت زمان از Supabase:', e.message);
+        return false;
+    }
+}
+
+// تابع ذخیره داده در Supabase
+async function saveToSupabase(table, data) {
+    try {
+        console.log('💾 در حال ذخیره در Supabase:', table);
+        
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const result = await response.json();
+        console.log('✅ ذخیره شد:', result);
+        return result;
+    } catch(e) {
+        console.error('❌ خطا در ذخیره در Supabase:', e);
+        return null;
+    }
+}
+
+// تابع خواندن داده از Supabase
+async function loadFromSupabase(table, filter = '') {
+    try {
+        console.log('📖 در حال خواندن از Supabase:', table);
+        
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${filter}`, {
+            headers: {
+                'apikey': SUPABASE_ANON_KEY,
+                'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            }
+        });
+        
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        console.log('✅ خوانده شد:', data);
+        return data;
+    } catch(e) {
+        console.error('❌ خطا در خواندن از Supabase:', e);
+        return null;
+    }
+}
+
+// اجرا هنگام بارگذاری صفحه - دریافت زمان از Supabase
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() {
+        if (typeof TIME_SERVICE !== 'undefined' && 
+            (TIME_SERVICE.getStatus() === 'offline' || !TIME_SERVICE.isSynced())) {
+            console.log('🔄 Time Service offline است، تلاش برای دریافت زمان از Supabase...');
+            syncTimeWithSupabase();
+        }
+    }, 1000);
+});
+
+console.log('✅ Supabase با موفقیت متصل شد!');
+console.log('📡 Project URL:', SUPABASE_URL);
 // ============================================================
 // پاک کردن Draft در هنگام بارگذاری و ورود
 // ============================================================

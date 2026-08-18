@@ -799,7 +799,7 @@ console.log('✅ Supabase تنظیمات:', SUPABASE_URL);
 // تابع دریافت زمان از Supabase
 async function syncTimeWithSupabase() {
     try {
-        console.log('🔄 در حال دریافت زمان از Supabase...');
+        console.log('✅ Supabase تنظیمات:', SUPABASE_URL);
         
         const response = await fetch(`${SUPABASE_URL}/rest/v1/time?select=server_time&order=id.desc&limit=1`, {
             headers: {
